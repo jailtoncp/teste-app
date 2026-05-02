@@ -1,0 +1,2531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Controle de Produção - Sistema completo com sugestão de bônus automática">
+  <meta name="theme-color" content="#4CAF50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Controle de Produção">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4CAF50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc98quHpJhpqcqPB4rRdLDjg48nCO3SA",
+      authDomain: "controle-producao-5a599.firebaseapp.com",
+      projectId: "controle-producao-5a599",
+      storageBucket: "controle-producao-5a599.firebasestorage.app",
+      messagingSenderId: "969593877882",
+      appId: "1:969593877882:web:f06563f51c57bd062e52c3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Expor para o escopo global para uso nas funções legadas
+    window.auth = auth;
+    window.db = db;
+    window.fbAuth = { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged };
+    window.fbDb = { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc, onSnapshot };
+  </script>
+  <title>Controle de Produção</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 10px;
+      position: relative;
+    }
+
+    .topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .notif {
+      font-size: 24px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .notif span {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: red;
+      color: white;
+      border-radius: 50%;
+      font-size: 14px;
+      padding: 2px 6px;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 500px;
+      margin: auto;
+      font-size: 18px;
+    }
+
+    button {
+      margin: 8px 0;
+      padding: 14px;
+      font-size: 18px;
+      width: 100%;
+      border: none;
+      border-radius: 5px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    button.btn-menu {
+      background: #2196F3;
+      margin-top: 15px;
+    }
+
+    button.btn-menu:hover {
+      background: #1976D2;
+    }
+
+    button.btn-logout {
+      background: #f44336;
+    }
+
+    button.btn-logout:hover {
+      background: #da190b;
+    }
+
+    input, select {
+      padding: 12px;
+      margin: 8px 0;
+      width: 100%;
+      font-size: 18px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    .password-container {
+      position: relative;
+      margin: 8px 0;
+    }
+
+    .password-container input {
+      margin: 0;
+      padding-right: 45px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 20px;
+      user-select: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .item {
+      padding: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .vermelho {
+      color: red;
+      font-weight: bold;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 14px;
+      margin-top: 20px;
+      color: #555;
+    }
+
+    .config-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+    }
+
+    .config-section h4 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .radio-option input[type="radio"] {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .radio-option label {
+      margin: 0;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border: 1px solid #2196F3;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #1565c0;
+    }
+
+    .notificacao-item {
+      background: #f0f8ff;
+      border-left: 4px solid #4CAF50;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .notificacao-titulo {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .notificacao-descricao {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .btn-detalhes {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      width: auto;
+      margin: 0;
+    }
+
+    .btn-detalhes:hover {
+      background: #1976D2;
+    }
+
+    .modal-detalhes {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+
+    .modal-detalhes.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 400px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .modal-body {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .modal-footer {
+      text-align: right;
+    }
+
+    .btn-fechar-modal {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-fechar-modal:hover {
+      background: #da190b;
+    }
+
+    .btn-limpar {
+      background: #f44336;
+      color: white;
+      margin-top: 10px;
+    }
+
+    .btn-limpar:hover {
+      background: #da190b;
+    }
+
+    .notificacoes-vazias {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-size: 16px;
+    }
+
+    .install-banner {
+      background: #4CAF50;
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      display: none;
+      text-align: center;
+    }
+
+    .install-banner.show {
+      display: block;
+    }
+
+    .install-banner button {
+      background: white;
+      color: #4CAF50;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .welcome-title {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .welcome-subtitle {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #666;
+      font-size: 16px;
+    }
+
+    .link-cadastro {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .link-cadastro a {
+      color: #2196F3;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .link-cadastro a:hover {
+      color: #1976D2;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 20px 0;
+    }
+
+    .operacao-card {
+      background: #f9f9f9;
+      border-left: 4px solid #4CAF50;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+
+    .operacao-card.abaixo-meta {
+      border-left-color: #f44336;
+    }
+
+    .operacao-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .operacao-card small {
+      display: block;
+      color: #666;
+      margin: 4px 0;
+    }
+
+    .filtro-buttons {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filtro-buttons button {
+      flex: 1;
+      min-width: 80px;
+      padding: 10px;
+      font-size: 14px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="install-banner" id="installBanner">
+    <strong>Instale o app na sua tela inicial!</strong>
+    <button onclick="instalarApp()">Instalar Agora</button>
+  </div>
+
+  <!-- TELA DE LOGIN -->
+  <div class="box" id="login">
+    <h2 style="text-align: center; margin-bottom: 30px;">🔐 Controle de Produção</h2>
+    <p style="text-align: center; margin-bottom: 20px; color: #666;">Faça login para continuar</p>
+    <input id="loginEmail" placeholder="E-mail" type="email">
+    <div class="password-container">
+      <input id="loginPass" placeholder="Senha" type="password">
+      <span class="toggle-password" onclick="togglePasswordVisibility('loginPass')">👁️</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+      <input id="manterConectado" type="checkbox" style="width: auto; margin: 0; cursor: pointer;">
+      <label for="manterConectado" style="margin: 0; cursor: pointer; flex: 1;">Manter-me conectado</label>
+    </div>
+    <button onclick="fazerLogin()">Entrar</button>
+    <button style="background: #2196F3;" onclick="abrirRecuperarSenha()">❓ Esqueci a senha</button>
+    <div class="link-cadastro">
+      Não tem conta? <a onclick="abrirCadastro()">Cadastre-se aqui</a>
+    </div>
+  </div>
+
+  <!-- TELA DE CADASTRO -->
+  <div class="box hidden" id="cadastroUsuario">
+    <h2 style="text-align: center; margin-bottom: 20px;">📝 Criar Conta</h2>
+    <input id="cadastroNome" placeholder="Nome completo" type="text">
+    <input id="cadastroEmail" placeholder="E-mail" type="email">
+    <div class="password-container">
+      <input id="cadastroPass" placeholder="Senha" type="password">
+      <span class="toggle-password" onclick="togglePasswordVisibility('cadastroPass')">👁️</span>
+    </div>
+    <div class="password-container">
+      <input id="cadastroPassConfirm" placeholder="Confirmar Senha" type="password">
+      <span class="toggle-password" onclick="togglePasswordVisibility('cadastroPassConfirm')">👁️</span>
+    </div>
+    <button onclick="salvarCadastroUsuario()">Cadastrar</button>
+    <button style="background: #666;" onclick="voltarLogin()">Voltar</button>
+  </div>
+
+  <!-- TELA DE RECUPERAÇÃO DE SENHA -->
+  <div class="box hidden" id="recuperarSenha">
+    <h2 style="text-align: center; margin-bottom: 20px;">🔑 Recuperar Senha</h2>
+    <p style="text-align: center; margin-bottom: 15px; color: #666;">Digite seu e-mail para receber instruções</p>
+    <input id="emailRecuperacao" placeholder="E-mail" type="email">
+    <button onclick="enviarRecuperacao()">Enviar Link de Recuperação</button>
+    <button style="background: #666;" onclick="voltarLogin()">Voltar</button>
+  </div>
+
+  <!-- TELA DE BEM-VINDO (MENU PRINCIPAL) -->
+  <div class="box hidden" id="welcome">
+    <div class="topo">
+      <h2 class="welcome-title" style="margin-bottom: 0; flex: 1;">Bem-vindo!</h2>
+      <div class="notif" onclick="abrirConfigSenhaSuper()" style="font-size: 24px; cursor: pointer;">⚙️</div>
+    </div>
+    <p class="welcome-subtitle">O que deseja fazer hoje?</p>
+    <button onclick="trocarTela('home')">📋 Coletar Produção</button>
+    <button onclick="abrirSupervisao()">📊 Supervisionar Produção</button>
+  </div>
+
+  <!-- TELA DE COLETA DE PRODUÇÃO -->
+  <div class="box hidden" id="home">
+    <div class="topo">
+      <h2>Produção</h2>
+    </div>
+    <div id="listaFuncionarios"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 15px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+      <button onclick="voltarDataHome()" style="width: auto; padding: 8px 12px; margin: 0; font-size: 16px;">➖</button>
+      <input id="dataSelecionadaHome" type="date" style="flex: 1; margin: 0; padding: 8px; font-size: 16px;" onchange="mudarDataHome()">
+      <button onclick="avancarDataHome()" style="width: auto; padding: 8px 12px; margin: 0; font-size: 16px;">➕</button>
+    </div>
+    <button onclick="mostrarCadastro()">➕ Novo</button>
+    <button style="background: #ff9800;" onclick="limparDadosDiaGlobal()">🗑 Limpar dados do dia selecionado</button>
+    <button class="btn-menu" onclick="trocarTela('welcome')">🏠 Voltar ao Menu</button>
+    <button class="btn-logout" onclick="fazerLogout()">🚪 Sair</button>
+  </div>
+
+  <!-- TELA DE SUPERVISÃO -->
+  <div class="box hidden" id="supervisao">
+    <div class="topo">
+      <h2>Supervisão de Metas</h2>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <div class="notif" onclick="abrirNotificacoes()" style="margin: 0;">🏆<span id="numNotSupervisao">0</span></div>
+        <div class="notif" onclick="abrirConfigBonusSupervisao()" style="margin: 0; cursor: pointer;">⚙️</div>
+      </div>
+    </div>
+    
+    <div class="config-section">
+      <h4>Filtro de Período</h4>
+      <div class="filtro-buttons">
+        <button onclick="filtrarPeriodo('hoje')">Hoje</button>
+        <button onclick="filtrarPeriodo('semana')">Semana</button>
+        <button onclick="filtrarPeriodo('mes')">Mês</button>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <p style="font-size: 14px; margin-bottom: 8px;"><strong>Período Personalizado:</strong></p>
+        <input id="dataInicio" type="date" style="margin-bottom: 8px;">
+        <input id="dataFim" type="date" style="margin-bottom: 8px;">
+        <button style="padding: 10px;" onclick="filtrarPeriodo('personalizado')">Aplicar Filtro</button>
+      </div>
+      <p id="periodoAtual" style="font-size: 12px; color: #666; margin-top: 10px;">Período: Hoje</p>
+    </div>
+    
+    <div id="listaSupervisao"></div>
+    
+    <button onclick="exportarGeral()">📊 Exportar Geral</button>
+    <button class="btn-menu" onclick="trocarTela('welcome')">🏠 Voltar ao Menu</button>
+    <button class="btn-logout" onclick="fazerLogout()">🚪 Sair</button>
+  </div>
+
+  <!-- TELA DE DETALHES DE SUPERVISÃO -->
+  <div class="box hidden" id="detalhesSupervisao">
+    <h3 id="nomeFuncSupervisao"></h3>
+    <p id="periodoSupervisao" style="font-size: 14px; color: #666; margin-bottom: 15px;"></p>
+    <div id="listaOperacoesSupervisao"></div>
+    <div id="graficoContainer" class="chart-container hidden">
+      <canvas id="graficoProducao"></canvas>
+    </div>
+    <button onclick="exportarIndividualSupervisao()">📊 Exportar Individual</button>
+    <button onclick="voltarSupervisao()">Voltar</button>
+  </div>
+
+  <div class="box hidden" id="configSenhaSuper">
+    <h3>Configurações de Acesso</h3>
+    
+    <div class="config-section">
+      <h4>Acesso à Supervisão</h4>
+      <p>Escolha se deseja proteger o acesso à área de Supervisão com uma senha:</p>
+      
+      <div class="radio-group">
+        <div class="radio-option">
+          <input type="radio" id="semSenha" name="tipoSenha" value="sem" onchange="alterarTipoSenha()">
+          <label for="semSenha"><strong>Sem Senha</strong> - Acesso livre à Supervisão</label>
+        </div>
+        
+        <div class="radio-option">
+          <input type="radio" id="comSenha" name="tipoSenha" value="com" onchange="alterarTipoSenha()">
+          <label for="comSenha"><strong>Com Senha</strong> - Proteger com senha</label>
+        </div>
+      </div>
+
+      <div id="campoSenhaSuper" style="display: none; margin-top: 15px;">
+        <p style="font-size: 14px; margin-bottom: 10px;"><strong>Defina a senha para Supervisão:</strong></p>
+        <div class="password-container">
+          <input id="senhaSuper" placeholder="Digite a senha" type="password">
+          <span class="toggle-password" onclick="togglePasswordVisibility('senhaSuper')">👁️</span>
+        </div>
+        <p style="font-size: 13px; margin-top: 15px; margin-bottom: 8px; color: #666;"><strong>E-mail para recuperação (opcional):</strong></p>
+        <input id="emailRecuperacaoSenha" placeholder="seu.email@exemplo.com" type="email" style="margin-bottom: 10px;">
+      </div>
+      <button style="margin-top: 15px;" onclick="salvarSenhaSuper()">Salvar Configuração</button>
+    </div>
+
+    <button onclick="voltarConfigSenhaSuper()">Voltar</button>
+  </div>
+
+  <div class="box hidden" id="configBonusSupervisao">
+    <h3>Configurações de Bônus</h3>
+    
+    <div class="config-section">
+      <h4>Configuração de sugestão de bônus</h4>
+      <p>Selecione quando deseja receber as sugestões de bônus de produção:</p>
+      
+      <div class="radio-group">
+        <div class="radio-option">
+          <input type="radio" id="filtroHoje" name="filtroNot" value="hoje" onchange="salvarConfigNotificacao()">
+          <label for="filtroHoje"><strong>Hoje</strong> - Receber notificação diariamente às 17:00</label>
+        </div>
+        
+        <div class="radio-option">
+          <input type="radio" id="filtroDia15" name="filtroNot" value="dia15" onchange="salvarConfigNotificacao()">
+          <label for="filtroDia15"><strong>Dia 15</strong> - Receber notificação no dia 15 de cada mês às 17:00</label>
+        </div>
+        
+        <div class="radio-option">
+          <input type="radio" id="filtroUltimoDia" name="filtroNot" value="ultimoDia" onchange="salvarConfigNotificacao()">
+          <label for="filtroUltimoDia"><strong>Dia 30</strong> - Receber notificação no último dia do mês às 17:00</label>
+        </div>
+      </div>
+
+      <div class="info-box">
+        ℹ️ <strong>Nota:</strong> As notificações serão disparadas automaticamente às 17:00 do dia selecionado, sem possibilidade de alteração do horário.
+      </div>
+    </div>
+
+    <button onclick="voltarConfigBonusSupervisao()">Voltar</button>
+  </div>
+
+  <div class="box hidden" id="cadastro">
+    <h3>Cadastro de Funcionário</h3>
+    <input id="nome" placeholder="Nome">
+    <div id="ops"></div>
+    <button onclick="addOp()">➕ Adicionar operação</button>
+
+    <select id="desconto">
+      <option value="1">0%</option>
+      <option value="0.9">10%</option>
+      <option value="0.85">15%</option>
+      <option value="0.8">20%</option>
+    </select>
+    <button onclick="salvarFuncionario()">Salvar</button>
+    <button onclick="voltarHome()">Voltar</button>
+  </div>
+
+  <div class="box hidden" id="producao">
+    <h3 id="nomeFunc"></h3>
+    <select id="selectOp" onchange="trocarOp()"></select>
+
+    <!-- SELETOR DE DATA -->
+    <div style="display: flex; align-items: center; gap: 8px; margin: 15px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+      <button onclick="voltarData()" style="width: auto; padding: 8px 12px; margin: 0; font-size: 16px;">➖</button>
+      <input id="dataSelecionada" type="date" style="flex: 1; margin: 0; padding: 8px; font-size: 16px;" onchange="mudarData()">
+      <button onclick="avancarData()" style="width: auto; padding: 8px 12px; margin: 0; font-size: 16px;">➕</button>
+    </div>
+
+    <p><strong>Meta:</strong> <span id="metaExibida"></span></p>
+    <p><strong>Hora:</strong> <span id="hora"></span></p>
+    <button onclick="voltarHora()">➖</button>
+    <button onclick="avancarHora()">➕</button>
+
+    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+      <div style="flex: 2;">
+        <input id="qtd" type="text" inputmode="decimal" placeholder="Coleta" style="margin: 0;">
+        <div style="display: flex; gap: 2px; margin-top: 4px;">
+          <button onclick="addCalc('+')" style="padding: 5px; margin: 0; font-size: 14px; background: #888;">+</button>
+          <button onclick="addCalc('-')" style="padding: 5px; margin: 0; font-size: 14px; background: #888;">-</button>
+          <button onclick="addCalc('*')" style="padding: 5px; margin: 0; font-size: 14px; background: #888;">*</button>
+          <button onclick="addCalc('/')" style="padding: 5px; margin: 0; font-size: 14px; background: #888;">/</button>
+          <button onclick="limparQtd()" style="padding: 5px; margin: 0; font-size: 14px; background: #f44336;">🗑️</button>
+        </div>
+      </div>
+      <div style="flex: 1;">
+        <input id="obs" type="text" placeholder="Obs." style="margin: 0;">
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; margin: 12px 0; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input id="houveManutencao" type="checkbox" style="width: auto; margin: 0; cursor: pointer;">
+        <label for="houveManutencao" style="margin: 0; cursor: pointer; flex: 1; font-size: 14px;">Houve manutenção nesse período</label>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input id="houveConserto" type="checkbox" style="width: auto; margin: 0; cursor: pointer;">
+        <label for="houveConserto" style="margin: 0; cursor: pointer; flex: 1; font-size: 14px;">Houve conserto nesse período</label>
+      </div>
+    </div>
+    <button onclick="salvarProducao()">Salvar</button>
+
+    <hr>
+    <div id="listaProd"></div>
+    <div id="totaisPorOperacao" style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd;"></div>
+    <p><strong>Total Geral :</strong> <span id="total"></span></p>
+    <button onclick="exportarIndividual()">📊 Exportar</button>
+    <button onclick="mostrarOpcoes()">⚙️ Mais opções</button>
+    <button onclick="editarNome()">✏️ Editar nome</button>
+    <button style="background: #2196F3;" onclick="desfazerUltimaAcao()">↶ Desfazer última ação</button>
+    <button onclick="excluirFuncionario()">🗑 Excluir funcionário</button>
+    <button id="btnVoltarProducao" style="background: #2196F3; font-weight: bold; padding: 15px; margin-top: 10px;" onclick="voltarHome()">↶ VOLTAR PARA FUNCIONÁRIOS</button>
+  </div>
+
+  <script>
+    // Forçar o funcionamento do botão voltar mesmo se houver erro em outras partes do script
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('btnVoltarProducao');
+      if (btn) {
+        btn.addEventListener('click', function(e) {
+          console.log('Botão voltar clicado via EventListener');
+          voltarHome();
+        });
+      }
+    });
+  </script>
+
+  <div class="box hidden" id="opcoes">
+    <h3>Mais opções do funcionário</h3>
+    <label>Desconto</label>
+    <select id="novoDesconto">
+      <option value="1">0%</option>
+      <option value="0.9">10%</option>
+      <option value="0.85">15%</option>
+      <option value="0.8">20%</option>
+    </select>
+    <hr>
+    <h4>Operações cadastradas</h4>
+    <div id="listaOperacoes"></div>
+    <hr>
+    <h4>Nova operação</h4>
+    <input id="novaOpNome" placeholder="Nome da operação">
+    <input id="novaOpMeta" type="number" placeholder="Meta da operação">
+    <button onclick="adicionarOperacao()">➕ Adicionar operação</button>
+
+    <button onclick="salvarMeta()">Salvar ajustes</button>
+    <button onclick="voltarProducao()">Voltar</button>
+  </div>
+
+  <div class="box hidden" id="notificacoes">
+    <h3>Notificações</h3>
+    <div id="listaNotificacoes"></div>
+    <button class="btn-limpar" onclick="limparNotificacoes()">🗑 Limpar notificações</button>
+    <button onclick="fecharNotificacoes()">Voltar</button>
+  </div>
+
+  <!-- Modal para detalhes da notificação -->
+  <div id="modalDetalhes" class="modal-detalhes">
+    <div class="modal-content">
+      <div class="modal-header" id="modalTitulo"></div>
+      <div class="modal-body" id="modalJustificativa"></div>
+      <div class="modal-footer">
+        <button class="btn-fechar-modal" onclick="fecharModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    ®created by Jailton de Paula Padilha <br>
+    e-mail: <a> jailton-cp@outlook.com</span></a></a> <br>
+    Riversul - SP
+  </footer>
+
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    // ============================================
+    // SERVICE WORKER REGISTRATION
+    // ============================================
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+          console.log('Service Worker registrado com sucesso:', registration);
+        }).catch(error => {
+          console.log('Erro ao registrar Service Worker:', error);
+        });
+      });
+    }
+
+    // ============================================
+    // PWA INSTALL PROMPT
+    // ============================================
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('installBanner').classList.add('show');
+    });
+
+    function instalarApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('Usuário aceitou a instalação');
+          }
+          deferredPrompt = null;
+          document.getElementById('installBanner').classList.remove('show');
+        });
+      }
+    }
+
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA foi instalado com sucesso');
+      document.getElementById('installBanner').classList.remove('show');
+    });
+
+    // ============================================
+    // VARIÁVEIS GLOBAIS
+    // ============================================
+    let horas = ["7:00" , "08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00" , "19:00"];
+    let indexHora = 0;
+    let atual = null;
+    let indicesHorasFuncionarios = JSON.parse(localStorage.getItem("indicesHorasFuncionarios")) || {};
+    let opAtual = 0;
+    let ultimaTela = 'welcome';
+    let usuarioAtual = null;
+    let periodoFiltro = { tipo: "hoje", inicio: null, fim: null };
+    let graficoAtual = null;
+    let dataSelecionada = new Date().toISOString().split('T')[0]; // Data atual em formato YYYY-MM-DD
+    let ultimaDataAberta = null; // Controlar reset à meia-noite
+    const HORAS_TRABALHO_DIA = 9; // Jornada padrão de 9 horas (Seg-Qui)
+    const HORAS_TRABALHO_SEXTA = 8; // Jornada reduzida na sexta-feira
+
+    let usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+    let funcionarios = JSON.parse(localStorage.getItem("dados")) || [];
+    let notificacoes = JSON.parse(localStorage.getItem("notificacoes")) || [];
+    let configNotificacao = JSON.parse(localStorage.getItem("configNotificacao")) || { filtro: "hoje", ultimoDisparo: null };
+    let configSenhaSuper = JSON.parse(localStorage.getItem("configSenhaSuper")) || { tipo: "sem", senha: null };
+    let historicoAcoes = [];
+    let ultimoRegistroRemovido = null;
+    let tentativasErroSenha = JSON.parse(localStorage.getItem("tentativasErroSenha")) || { contador: 0, bloqueado: false, dataBloqueio: null };
+    let emailRecuperacao = localStorage.getItem("emailRecuperacao") || "";
+
+    // ============================================
+    // FUNÇÕES DE ARMAZENAMENTO (NUVEM - FIRESTORE)
+    // ============================================
+    async function salvarDados() {
+      if (!usuarioAtual) return;
+      
+      try {
+        // Salva funcionários e registros no Firestore
+        await window.fbDb.setDoc(window.fbDb.doc(window.db, "dados", usuarioAtual.uid), {
+          funcionarios: funcionarios,
+          indicesHorasFuncionarios: indicesHorasFuncionarios,
+          configNotificacao: configNotificacao,
+          configSenhaSuper: configSenhaSuper,
+          notificacoes: notificacoes,
+          ultimaAtualizacao: new Date().toISOString()
+        });
+        console.log("Dados salvos na nuvem com sucesso!");
+      } catch (error) {
+        console.error("Erro ao salvar dados na nuvem:", error);
+      }
+      
+      // Backup local por segurança
+      localStorage.setItem("dados", JSON.stringify(funcionarios));
+      localStorage.setItem("indicesHorasFuncionarios", JSON.stringify(indicesHorasFuncionarios));
+    }
+
+    async function carregarDadosNuvem() {
+      if (!usuarioAtual) return;
+      
+      try {
+        const docSnap = await window.fbDb.getDoc(window.fbDb.doc(window.db, "dados", usuarioAtual.uid));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          funcionarios = data.funcionarios || [];
+          indicesHorasFuncionarios = data.indicesHorasFuncionarios || {};
+          configNotificacao = data.configNotificacao || { filtro: "hoje", ultimoDisparo: null };
+          configSenhaSuper = data.configSenhaSuper || { tipo: "sem", senha: null };
+          notificacoes = data.notificacoes || [];
+          
+          // Atualizar localStorage com dados da nuvem
+          localStorage.setItem("dados", JSON.stringify(funcionarios));
+          localStorage.setItem("indicesHorasFuncionarios", JSON.stringify(indicesHorasFuncionarios));
+          localStorage.setItem("configNotificacao", JSON.stringify(configNotificacao));
+          localStorage.setItem("configSenhaSuper", JSON.stringify(configSenhaSuper));
+          localStorage.setItem("notificacoes", JSON.stringify(notificacoes));
+          
+          console.log("Dados carregados da nuvem!");
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados da nuvem:", error);
+      }
+    }
+
+    function salvarNotificacoes() {
+      salvarDados();
+    }
+
+    function salvarConfigNotificacao() {
+      let filtro = document.querySelector('input[name="filtroNot"]:checked').value;
+      configNotificacao.filtro = filtro;
+      localStorage.setItem("configNotificacao", JSON.stringify(configNotificacao));
+    }
+
+    function carregarConfigNotificacao() {
+      let filtro = configNotificacao.filtro || "hoje";
+      const id = "filtro" + (filtro === "hoje" ? "Hoje" : filtro === "dia15" ? "Dia15" : "UltimoDia");
+      const el = document.getElementById(id);
+      if(el) el.checked = true;
+    }
+
+    function hoje() {
+      return new Date().toISOString().split("T")[0];
+    }
+
+    function calcularMetaPeriodo(metaPorHora, dataInicio, dataFim) {
+      let totalMeta = 0;
+      let dataAtual = new Date(dataInicio + "T00:00:00");
+      let dataFinal = new Date(dataFim + "T00:00:00");
+
+      while (dataAtual <= dataFinal) {
+        let diaSemana = dataAtual.getDay(); // 0=Dom, 1=Seg, ..., 5=Sex, 6=Sab
+        
+        if (diaSemana >= 1 && diaSemana <= 5) { // Segunda a Sexta
+          let horasNoDia = (diaSemana === 5) ? HORAS_TRABALHO_SEXTA : HORAS_TRABALHO_DIA;
+          totalMeta += metaPorHora * horasNoDia;
+        }
+        
+        dataAtual.setDate(dataAtual.getDate() + 1);
+      }
+      return Math.round(totalMeta);
+    }
+
+    function temObservacaoPreenchida(obs) {
+      return String(obs || "").trim() !== "";
+    }
+
+    function registroContaComoMetaAtingida(registro) {
+      if (!registro) return false;
+      return !!(registro.conserto || registro.manutencao || temObservacaoPreenchida(registro.obs));
+    }
+
+    // ============================================
+    // FUNÇÕES DE AUTENTICAÇÃO
+    // ============================================
+    function togglePasswordVisibility(inputId) {
+      let input = document.getElementById(inputId);
+      let toggle = event.target;
+      if (input.type === "password") {
+        input.type = "text";
+        toggle.textContent = "🙈";
+      } else {
+        input.type = "password";
+        toggle.textContent = "👁️";
+      }
+    }
+
+    async function fazerLogin() {
+      let email = document.getElementById("loginEmail").value;
+      let senha = document.getElementById("loginPass").value;
+      let manterConectado = document.getElementById("manterConectado").checked;
+      
+      if (!email || !senha) {
+        alert("Preencha e-mail e senha!");
+        return;
+      }
+
+      // Login de Desenvolvedor
+      if (email === "admin" && senha === "admin") {
+        trocarTela("painelAdmin");
+        return;
+      }
+
+      try {
+        const userCredential = await window.fbAuth.signInWithEmailAndPassword(window.auth, email, senha);
+        usuarioAtual = { 
+          uid: userCredential.user.uid, 
+          email: userCredential.user.email,
+          nome: userCredential.user.displayName || email.split('@')[0]
+        };
+        
+        localStorage.setItem("usuarioAtual", JSON.stringify(usuarioAtual));
+        if (manterConectado) {
+          localStorage.setItem("manterConectado", "true");
+        } else {
+          localStorage.removeItem("manterConectado");
+        }
+        
+        // Carregar dados do usuário do Firestore
+        await carregarDadosNuvem();
+        
+        trocarTela("welcome");
+        document.getElementById("loginEmail").value = "";
+        document.getElementById("loginPass").value = "";
+      } catch (error) {
+        console.error("Erro no login:", error);
+        alert("E-mail ou senha incorretos ou erro na conexão!");
+      }
+    }
+
+    function abrirCadastro() {
+      trocarTela("cadastroUsuario");
+    }
+
+    async function salvarCadastroUsuario() {
+      let nome = document.getElementById("cadastroNome").value;
+      let email = document.getElementById("cadastroEmail").value;
+      let senha = document.getElementById("cadastroPass").value;
+      let senhaConfirm = document.getElementById("cadastroPassConfirm").value;
+
+      if (!nome || !email || !senha || !senhaConfirm) {
+        alert("Preencha todos os campos!");
+        return;
+      }
+
+      if (senha !== senhaConfirm) {
+        alert("As senhas não conferem!");
+        return;
+      }
+
+      try {
+        const userCredential = await window.fbAuth.createUserWithEmailAndPassword(window.auth, email, senha);
+        const user = userCredential.user;
+        
+        // Salvar perfil inicial no Firestore
+        await window.fbDb.setDoc(window.fbDb.doc(window.db, "usuarios", user.uid), {
+          nome: nome,
+          email: email,
+          criadoEm: new Date().toISOString()
+        });
+
+        alert("Cadastro realizado com sucesso! Faça login para continuar.");
+        voltarLogin();
+      } catch (error) {
+        console.error("Erro no cadastro:", error);
+        if (error.code === 'auth/email-already-in-use') {
+          alert("E-mail já cadastrado!");
+        } else {
+          alert("Erro ao realizar cadastro: " + error.message);
+        }
+      }
+    }
+
+    function abrirRecuperarSenha() {
+      trocarTela("recuperarSenha");
+    }
+
+    async function enviarRecuperacao() {
+      let email = document.getElementById("emailRecuperacao").value;
+      if (!email) {
+        alert("Digite seu e-mail!");
+        return;
+      }
+
+      try {
+        await window.fbAuth.sendPasswordResetEmail(window.auth, email);
+        alert(`Um e-mail de recuperação foi enviado para ${email}. Verifique sua caixa de entrada.`);
+        voltarLogin();
+      } catch (error) {
+        console.error("Erro na recuperação:", error);
+        alert("Erro ao enviar e-mail de recuperação: " + error.message);
+      }
+    }
+
+    function voltarLogin() {
+      trocarTela("login");
+      document.getElementById("cadastroNome").value = "";
+      document.getElementById("cadastroEmail").value = "";
+      document.getElementById("cadastroPass").value = "";
+      document.getElementById("cadastroPassConfirm").value = "";
+      document.getElementById("emailRecuperacao").value = "";
+    }
+
+    async function fazerLogout() {
+      try {
+        await window.fbAuth.signOut(window.auth);
+        usuarioAtual = null;
+        funcionarios = [];
+        notificacoes = [];
+        localStorage.removeItem("usuarioAtual");
+        localStorage.removeItem("manterConectado");
+        trocarTela("login");
+        document.getElementById("loginEmail").value = "";
+        document.getElementById("loginPass").value = "";
+      } catch (error) {
+        console.error("Erro no logout:", error);
+      }
+    }
+
+    // ============================================
+    // FUNÇÕES DE NAVEGAÇÃO
+    // ============================================
+    function trocarTela(t) {
+      document.querySelectorAll(".box").forEach(e => e.classList.add("hidden"));
+      let tela = document.getElementById(t);
+      if (tela) {
+        tela.classList.remove("hidden");
+      } else {
+        console.error("Tela não encontrada:", t);
+        document.getElementById("welcome").classList.remove("hidden");
+      }
+      
+      if (t === 'home') renderFuncionarios();
+      if (t === 'supervisao') renderSupervisao();
+    }
+
+    function abrirSupervisao() {
+      if (configSenhaSuper.tipo === "com" && configSenhaSuper.senha) {
+        let senhaDigitada = prompt("Digite a senha para acessar a Supervisão:");
+        if (senhaDigitada !== configSenhaSuper.senha) {
+          alert("Senha incorreta!");
+          return;
+        }
+      }
+      trocarTela('supervisao');
+      filtrarPeriodo('hoje');
+    }
+
+    function mostrarCadastro() {
+      trocarTela("cadastro");
+      document.getElementById("ops").innerHTML = "";
+    }
+
+    function voltarHome() {
+      console.log('Executando voltarHome...');
+      try {
+        // Tenta atualizar notificações se a função existir
+        if (typeof atualizarNotificacoes === 'function') atualizarNotificacoes();
+        
+        // Troca para a tela home (listagem de funcionários)
+        trocarTela("home");
+        
+        // Renderiza a lista para garantir que apareça
+        if (typeof renderFuncionarios === 'function') renderFuncionarios();
+        
+        console.log('Navegação para home concluída.');
+      } catch (e) {
+        console.error('Erro ao voltar para home:', e);
+        // Fallback de emergência: força a visibilidade via CSS direto
+        document.querySelectorAll(".box").forEach(el => el.classList.add("hidden"));
+        document.getElementById("home").classList.remove("hidden");
+        renderFuncionarios();
+      }
+    }
+
+    function voltarSupervisao() {
+      trocarTela("supervisao");
+      renderSupervisao();
+    }
+
+    function atualizarNotificacoes() {
+      let num = notificacoes.length;
+      // Atualiza todos os contadores de notificação possíveis
+      const ids = ["numNot", "numNotSupervisao"];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = num;
+      });
+    }
+
+    function abrirNotificacoes() {
+      const telaAtual = Array.from(document.querySelectorAll(".box")).find(e => !e.classList.contains("hidden"))?.id;
+      if (['home', 'supervisao', 'welcome'].includes(telaAtual)) {
+        ultimaTela = telaAtual;
+      }
+      
+      trocarTela("notificacoes");
+      let lista = document.getElementById("listaNotificacoes");
+      lista.innerHTML = "";
+      if (notificacoes.length === 0) {
+        lista.innerHTML = "<div class='notificacoes-vazias'>Nenhuma notificação</div>";
+      } else {
+        notificacoes.forEach((n, index) => {
+          lista.innerHTML += `
+            <div class="notificacao-item">
+              <div class="notificacao-titulo">${n.titulo || "Sugestão de Bônus"}</div>
+              <div class="notificacao-descricao">${n.descricao || n.texto}</div>
+              <button class="btn-detalhes" onclick="abrirDetalhes(${index})">Ver Detalhes</button>
+            </div>
+          `;
+        });
+      }
+    }
+
+    function abrirDetalhes(index) {
+      let notif = notificacoes[index];
+      document.getElementById("modalTitulo").innerText = notif.titulo || "Detalhes da Sugestão";
+      document.getElementById("modalJustificativa").innerHTML = `
+        <div>${notif.justificativa || "Sem detalhes disponíveis"}</div>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+          <button class="btn-detalhes" onclick="baixarRelatorioBonusCSV(${index})" style="flex: 1;">Baixar (CSV)</button>
+          <button class="btn-detalhes" onclick="baixarRelatorioBonusExcel(${index})" style="flex: 1;">Baixar (Excel)</button>
+        </div>
+      `;
+      document.getElementById("modalDetalhes").classList.add("show");
+    }
+
+    function fecharModal() {
+      document.getElementById("modalDetalhes").classList.remove("show");
+    }
+
+    function limparNotificacoes() {
+      if (confirm("Deseja limpar todas as notificações?")) {
+        notificacoes = [];
+        salvarNotificacoes();
+        atualizarNotificacoes();
+        abrirNotificacoes();
+        alert("Notificações limpas!");
+      }
+    }
+
+    function mostrarOpcoes() {
+      trocarTela("opcoes");
+      let f = funcionarios[atual];
+      document.getElementById("novoDesconto").value = f.desconto;
+      renderListaOperacoes();
+    }
+
+    function voltarProducao() {
+      trocarTela("producao");
+      carregarOperacoes();
+    }
+
+    function abrirConfigSenhaSuper() {
+      carregarConfigSenhaSuper();
+      trocarTela("configSenhaSuper");
+    }
+
+    function abrirConfigBonusSupervisao() {
+      carregarConfigNotificacao();
+      trocarTela("configBonusSupervisao");
+    }
+
+    function carregarConfigSenhaSuper() {
+      let tipoSenha = configSenhaSuper.tipo || "sem";
+      document.getElementById(tipoSenha === "sem" ? "semSenha" : "comSenha").checked = true;
+      if (tipoSenha === "com") {
+        document.getElementById("campoSenhaSuper").style.display = "block";
+      } else {
+        document.getElementById("campoSenhaSuper").style.display = "none";
+      }
+    }
+
+    function alterarTipoSenha() {
+      let tipo = document.querySelector('input[name="tipoSenha"]:checked').value;
+      
+      // Se está tentando mudar de "com senha" para "sem senha", pedir validação
+      if (tipo === "sem" && configSenhaSuper.tipo === "com" && configSenhaSuper.senha) {
+        let senhaDigitada = prompt("Para desativar a proteção de senha, digite a senha atual:");
+        if (senhaDigitada !== configSenhaSuper.senha) {
+          alert("Senha incorreta! A opção não foi alterada.");
+          // Reverter para a opção anterior
+          document.getElementById("comSenha").checked = true;
+          document.getElementById("campoSenhaSuper").style.display = "block";
+          return;
+        }
+      }
+      
+      if (tipo === "com") {
+        document.getElementById("campoSenhaSuper").style.display = "block";
+      } else {
+        document.getElementById("campoSenhaSuper").style.display = "none";
+      }
+    }
+
+    function salvarSenhaSuper() {
+      // Verificar se está bloqueado por muitas tentativas erradas
+      if (tentativasErroSenha.bloqueado) {
+        let agora = new Date().getTime();
+        let tempoDecorrido = agora - new Date(tentativasErroSenha.dataBloqueio).getTime();
+        let minutosBloqueio = 30; // Bloqueio de 30 minutos
+        
+        if (tempoDecorrido < minutosBloqueio * 60 * 1000) {
+          alert(`Sistema bloqueado por segurança. Tente novamente em ${Math.ceil((minutosBloqueio * 60 * 1000 - tempoDecorrido) / 60000)} minutos ou redefina a senha por e-mail.`);
+          return;
+        } else {
+          // Desbloquear após 30 minutos
+          tentativasErroSenha = { contador: 0, bloqueado: false, dataBloqueio: null };
+          localStorage.setItem("tentativasErroSenha", JSON.stringify(tentativasErroSenha));
+        }
+      }
+      
+      let tipo = document.querySelector('input[name="tipoSenha"]:checked').value;
+      let senhaAtual = document.getElementById("senhaSuper").value;
+      
+      // Se já existe uma senha e está tentando alterar, validar a senha atual
+      if (tipo === "com" && configSenhaSuper.tipo === "com" && configSenhaSuper.senha) {
+        let senhaAtualDigitada = prompt("Para alterar a senha, digite a senha atual:");
+        
+        if (senhaAtualDigitada !== configSenhaSuper.senha) {
+          tentativasErroSenha.contador++;
+          localStorage.setItem("tentativasErroSenha", JSON.stringify(tentativasErroSenha));
+          
+          if (tentativasErroSenha.contador >= 5) {
+            tentativasErroSenha.bloqueado = true;
+            tentativasErroSenha.dataBloqueio = new Date().toISOString();
+            localStorage.setItem("tentativasErroSenha", JSON.stringify(tentativasErroSenha));
+            alert(`Muitas tentativas erradas! Sistema bloqueado por 30 minutos.\n\nPara recuperar acesso, clique em 'Enviar Link de Recuperação' na tela de login ou entre em contato com o administrador.`);
+          } else {
+            alert(`Senha incorreta! Tentativas restantes: ${5 - tentativasErroSenha.contador}`);
+          }
+          return;
+        } else {
+          // Senha correta, resetar contador
+          tentativasErroSenha = { contador: 0, bloqueado: false, dataBloqueio: null };
+          localStorage.setItem("tentativasErroSenha", JSON.stringify(tentativasErroSenha));
+        }
+      }
+      
+      if (tipo === "com" && !senhaAtual) {
+        alert("Digite uma nova senha!");
+        return;
+      }
+      
+      let emailRecuperacao = document.getElementById("emailRecuperacaoSenha").value;
+      
+      configSenhaSuper = { tipo, senha: tipo === "com" ? senhaAtual : null };
+      localStorage.setItem("configSenhaSuper", JSON.stringify(configSenhaSuper));
+      
+      if (emailRecuperacao) {
+        localStorage.setItem("emailRecuperacao", emailRecuperacao);
+      }
+      
+      alert("Configuração de senha salva com sucesso!");
+      document.getElementById("senhaSuper").value = "";
+      document.getElementById("emailRecuperacaoSenha").value = "";
+    }
+
+    function voltarConfigSenhaSuper() {
+      trocarTela("welcome");
+    }
+
+    function voltarConfigBonusSupervisao() {
+      trocarTela("supervisao");
+    }
+
+    function fecharNotificacoes() {
+      trocarTela(ultimaTela);
+    }
+
+    // ============================================
+    // FUNÇÕES DE FUNCIONÁRIO
+    // ============================================
+    function editarNome() {
+      let f = funcionarios[atual];
+      let novoNome = prompt("Editar nome:", f.nome);
+      if (novoNome && novoNome.trim() !== "") {
+        f.nome = novoNome.trim();
+        salvarDados();
+        document.getElementById("nomeFunc").innerText = f.nome;
+      }
+    }
+
+    function renderListaOperacoes() {
+      let f = funcionarios[atual];
+      let div = document.getElementById("listaOperacoes");
+      div.innerHTML = "";
+      f.operacoes.forEach((op, i) => {
+        div.innerHTML += `<div class="item">${op.nome} (Meta: ${op.meta})
+          <button onclick="editarOperacao(${i})">✏️ Editar</button>
+          <button onclick="excluirOperacao(${i})">🗑 Excluir</button>
+          </div>`;
+      });
+    }
+
+    function editarOperacao(i) {
+      let f = funcionarios[atual];
+      let novoNome = prompt("Nome:", f.operacoes[i].nome);
+      let novaMeta = prompt("Meta:", f.operacoes[i].meta);
+      if (novoNome && novaMeta) {
+        f.operacoes[i].nome = novoNome;
+        f.operacoes[i].meta = parseInt(novaMeta);
+        salvarDados();
+        renderListaOperacoes();
+      }
+    }
+
+    function excluirOperacao(i) {
+      if (confirm("Excluir operação?")) {
+        let f = funcionarios[atual];
+        f.operacoes.splice(i, 1);
+        salvarDados();
+        renderListaOperacoes();
+      }
+    }
+
+    function adicionarOperacao() {
+      let nome = document.getElementById("novaOpNome").value;
+      let meta = document.getElementById("novaOpMeta").value;
+      if (!nome || !meta) {
+        alert("Preencha");
+        return;
+      }
+      let f = funcionarios[atual];
+      f.operacoes.push({ nome, meta: parseInt(meta) });
+      document.getElementById("novaOpNome").value = "";
+      document.getElementById("novaOpMeta").value = "";
+      salvarDados();
+      renderListaOperacoes();
+    }
+
+    function addOp() {
+      document.getElementById("ops").innerHTML += `
+        <div class="item">
+          <input placeholder="Operação" class="nomeOp">
+          <input type="number" placeholder="Meta" class="metaOp">
+        </div>`;
+    }
+
+    function salvarFuncionario() {
+  let nome = document.getElementById("nome").value;
+  let desconto = parseFloat(document.getElementById("desconto").value);
+  let nomes = document.querySelectorAll(".nomeOp");
+  let metas = document.querySelectorAll(".metaOp");
+  let operacoes = [];
+
+  for (let i = 0; i < nomes.length; i++) {
+    if (nomes[i].value && metas[i].value) {
+      operacoes.push({ nome: nomes[i].value, meta: parseInt(metas[i].value) });
+    }
+  }
+
+  if (!nome || operacoes.length == 0) {
+    alert("Preencha tudo");
+    return;
+  }
+
+  funcionarios.push({ nome, operacoes, desconto, registros: [] });
+  salvarDados();
+
+  trocarTela("home");
+  renderFuncionarios();
+}
+
+    function renderFuncionarios() {
+      let lista = document.getElementById("listaFuncionarios");
+      lista.innerHTML = "";
+      let inputDataHome = document.getElementById("dataSelecionadaHome");
+      if (inputDataHome) inputDataHome.value = dataSelecionada;
+      funcionarios.forEach((f, i) => {
+        lista.innerHTML += `<div class="item" onclick="abrir(${i})">👤 ${f.nome}</div>`;
+      });
+    }
+
+    function renderSupervisao() {
+      let lista = document.getElementById("listaSupervisao");
+      lista.innerHTML = "";
+      funcionarios.forEach((f, i) => {
+        lista.innerHTML += `<div class="item" onclick="abrirDetalhesSupervisao(${i})">👤 ${f.nome}</div>`;
+      });
+    }
+
+    function abrirDetalhesSupervisao(i) {
+      atual = i;
+      trocarTela("detalhesSupervisao");
+      let f = funcionarios[i];
+      document.getElementById("nomeFuncSupervisao").innerText = f.nome;
+      document.getElementById("periodoSupervisao").innerText = document.getElementById("periodoAtual").innerText;
+      renderDetalhesSupervisao();
+    }
+
+    function abrir(i) {
+      atual = i;
+      // Recupera o último índice de hora salvo para este funcionário ou volta para 0
+      indexHora = indicesHorasFuncionarios[fazerIdFuncionario(funcionarios[i])] || 0;
+      trocarTela("producao");
+      let f = funcionarios[i];
+      document.getElementById("nomeFunc").innerText = f.nome;
+      carregarOperacoes();
+      trocarOp();
+      renderProducao();
+    }
+
+    function fazerIdFuncionario(f) {
+      return f.nome.replace(/\s+/g, '_').toLowerCase();
+    }
+
+    function carregarOperacoes() {
+      let f = funcionarios[atual];
+      let select = document.getElementById("selectOp");
+      select.innerHTML = "";
+      f.operacoes.forEach((op, i) => {
+        select.innerHTML += `<option value="${i}">${op.nome}</option>`;
+      });
+    }
+
+    function trocarOp() {
+      opAtual = parseInt(document.getElementById("selectOp").value);
+      let f = funcionarios[atual];
+      let op = f.operacoes[opAtual];
+      // Meta exibida é a meta por hora multiplicada por 9 horas de trabalho
+      let metaDiaria = Math.round(op.meta * f.desconto * HORAS_TRABALHO_DIA);
+      document.getElementById("metaExibida").innerText = Math.round(op.meta * f.desconto) + "/h";
+    }
+
+    function limparDadosDia() {
+      if (confirm(`Tem certeza que deseja apagar todos os dados coletados do dia ${dataSelecionada}? Esta ação não pode ser desfeita.`)) {
+        let f = funcionarios[atual];
+        let dataAlvo = dataSelecionada;
+        f.registros = f.registros.filter(r => r.data !== dataAlvo);
+        salvarDados();
+        alert(`Dados do dia ${dataAlvo} foram apagados com sucesso!`);
+        renderProducao();
+      }
+    }
+
+    function limparDadosDiaGlobal() {
+      if (confirm(`Tem certeza que deseja apagar todos os dados de produção de TODOS os funcionários do dia ${dataSelecionada}? Esta ação não pode ser desfeita.`)) {
+        let dataAlvo = dataSelecionada;
+        funcionarios.forEach(f => {
+          f.registros = f.registros.filter(r => r.data !== dataAlvo);
+        });
+        salvarDados();
+        alert(`Dados do dia ${dataAlvo} de todos os funcionários foram apagados com sucesso!`);
+        renderFuncionarios();
+      }
+    }
+
+    function desfazerUltimaAcao() {
+      let f = funcionarios[atual];
+      if (f.registros.length === 0) {
+        alert("Não há dados para desfazer!");
+        return;
+      }
+      
+      let ultimoRegistro = f.registros[f.registros.length - 1];
+      if (ultimoRegistro.data === hoje()) {
+        f.registros.pop();
+        salvarDados();
+        alert("Última ação desfeita com sucesso!");
+        renderProducao();
+      } else {
+        alert("Não há registros de hoje para desfazer!");
+      }
+    }
+
+    function excluirFuncionario() {
+  if (confirm("Deseja excluir?")) {
+    funcionarios.splice(atual, 1);
+    salvarDados();
+
+    atual = null;
+    trocarTela("home");
+    renderFuncionarios();
+  }
+}
+
+    // ============================================
+    // FUNÇÕES DE PRODUÇÃO
+    // ============================================
+    function atualizarHora() {
+      document.getElementById("hora").innerText = horas[indexHora];
+      // Salva o índice atual para o funcionário selecionado
+      if (atual !== null) {
+        indicesHorasFuncionarios[fazerIdFuncionario(funcionarios[atual])] = indexHora;
+        localStorage.setItem("indicesHorasFuncionarios", JSON.stringify(indicesHorasFuncionarios));
+      }
+    }
+
+    function avancarHora() {
+      if (indexHora < horas.length - 1) indexHora++;
+      atualizarHora();
+    }
+
+    function voltarHora() {
+      if (indexHora > 0) indexHora--;
+      atualizarHora();
+    }
+
+    function addCalc(op) {
+      document.getElementById("qtd").value += op;
+      document.getElementById("qtd").focus();
+    }
+
+    function limparQtd() {
+      document.getElementById("qtd").value = "";
+    }
+
+    function salvarProducao() {
+      let qtdRaw = document.getElementById("qtd").value;
+      let obs = document.getElementById("obs").value;
+      let houveManutencao = document.getElementById("houveManutencao").checked;
+      let houveConserto = document.getElementById("houveConserto").checked;
+      
+      let qtd = 0;
+      try {
+        // Avalia a expressão matemática de forma segura
+        qtd = eval(qtdRaw.replace(/[^-()\d/*+.]/g, '')) || 0;
+      } catch (e) {
+        return alert("Cálculo inválido!");
+      }
+
+      if (!qtd && !houveConserto && !houveManutencao && !temObservacaoPreenchida(obs)) {
+        return alert("Digite quantidade, observação ou marque conserto/manutenção");
+      }
+      
+      let f = funcionarios[atual];
+      let horaAtual = horas[indexHora];
+      let opIndex = opAtual;
+      let registroExistente = f.registros.find(r => r.data === dataSelecionada && r.hora === horaAtual && r.op === opIndex);
+      
+      let dadosRegistro = { 
+        data: dataSelecionada, 
+        hora: horaAtual, 
+        qtd: Math.round(qtd), 
+        op: opIndex, 
+        manutencao: houveManutencao,
+        conserto: houveConserto,
+        obs: obs
+      };
+
+      if (registroExistente) {
+        Object.assign(registroExistente, dadosRegistro);
+      } else {
+        f.registros.push(dadosRegistro);
+      }
+
+      document.getElementById("qtd").value = "";
+      document.getElementById("obs").value = "";
+      document.getElementById("houveManutencao").checked = false;
+      document.getElementById("houveConserto").checked = false;
+      
+      salvarDados();
+      renderProducao();
+      if (indexHora < horas.length - 1) indexHora++;
+      atualizarHora();
+    }
+
+    function renderProducao() {
+      let f = funcionarios[atual];
+      let lista = document.getElementById("listaProd");
+      let divTotais = document.getElementById("totaisPorOperacao");
+      lista.innerHTML = "";
+      divTotais.innerHTML = "";
+      let totalGeralSelecionada = 0;
+      let totaisOps = {};
+      
+      // Atualizar o input de data com a data selecionada
+      document.getElementById("dataSelecionada").value = dataSelecionada;
+      
+      // Filtra apenas registros da data selecionada para exibir na tela de lancamento
+      let registrosSelecionados = f.registros.filter(r => r.data === dataSelecionada);
+      
+      // Ordena os registros por hora para manter a sequência correta
+      registrosSelecionados.sort((a, b) => {
+        return a.hora.localeCompare(b.hora);
+      });
+      
+      registrosSelecionados.forEach(r => {
+        let op = f.operacoes[r.op];
+        if (!op) return;
+        
+        let meta = op.meta * f.desconto;
+        let atingiuMeta = registroContaComoMetaAtingida(r) || r.qtd >= meta;
+        let classe = atingiuMeta ? "" : "vermelho";
+        let manutencaoIcon = r.manutencao ? " 🛠️" : "";
+        let consertoIcon = r.conserto ? " 🪡" : "";
+        let obsIcon = temObservacaoPreenchida(r.obs) ? ` 📝 ${r.obs}` : "";
+        
+        let texto = `${r.hora} → ${r.qtd} (${op.nome})${manutencaoIcon}${consertoIcon}${obsIcon}`;
+        lista.innerHTML += `<div class="item ${classe}">${texto}</div>`;
+        
+        // Acumula totais por operação
+        if (!totaisOps[op.nome]) totaisOps[op.nome] = 0;
+        totaisOps[op.nome] += r.qtd;
+
+         { totalGeralSelecionada += r.qtd;
+        }
+      });
+
+      // Exibe os totais por operação
+      Object.keys(totaisOps).forEach(nomeOp => {
+        divTotais.innerHTML += `
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 8px; background: #f9f9f9; border-radius: 5px; border: 1px solid #eee;">
+            <div style="font-weight: bold; color: #4CAF50; font-size: 16px;">${totaisOps[nomeOp]}</div>
+            <div style="font-size: 12px; color: #666;">(${nomeOp})</div>
+          </div>
+        `;
+      });
+      
+      if (Object.keys(totaisOps).length === 0) {
+        divTotais.style.display = "none";
+      } else {
+        divTotais.style.display = "flex";
+      }
+      
+      document.getElementById("total").innerText = totalGeralSelecionada;
+      atualizarHora();
+    }
+
+    function salvarMeta() {
+      let f = funcionarios[atual];
+      f.desconto = parseFloat(document.getElementById("novoDesconto").value);
+      salvarDados();
+      voltarProducao();
+    }
+
+    // ============================================
+    // FUNÇÕES DE SUPERVISÃO
+    // ============================================
+    function obterIntervaloData(tipo) {
+      let hoje_obj = new Date();
+      let inicio, fim;
+
+      if (tipo === "hoje") {
+        inicio = hoje();
+        fim = hoje();
+      } else if (tipo === "semana") {
+        let dia = hoje_obj.getDay();
+        let diff = hoje_obj.getDate() - dia + (dia === 0 ? -6 : 1);
+        inicio = new Date(hoje_obj.setDate(diff)).toISOString().split("T")[0];
+        fim = hoje();
+      } else if (tipo === "mes") {
+        inicio = new Date(hoje_obj.getFullYear(), hoje_obj.getMonth(), 1).toISOString().split("T")[0];
+        fim = hoje();
+      }
+
+      return { inicio, fim };
+    }
+
+    function filtrarPeriodo(tipo) {
+      if (tipo === "personalizado") {
+        let dataInicio = document.getElementById("dataInicio").value;
+        let dataFim = document.getElementById("dataFim").value;
+        if (!dataInicio || !dataFim) {
+          alert("Preencha ambas as datas!");
+          return;
+        }
+        periodoFiltro = { tipo: "personalizado", inicio: dataInicio, fim: dataFim };
+        document.getElementById("periodoAtual").innerText = `Período: ${dataInicio} a ${dataFim}`;
+      } else {
+        let intervalo = obterIntervaloData(tipo);
+        periodoFiltro = { tipo, inicio: intervalo.inicio, fim: intervalo.fim };
+        let textoTipo = tipo === "hoje" ? "Hoje" : tipo === "semana" ? "Esta Semana" : "Este Mês";
+        document.getElementById("periodoAtual").innerText = `Período: ${textoTipo}`;
+      }
+      renderSupervisao();
+    }
+
+    function renderDetalhesSupervisao() {
+      let f = funcionarios[atual];
+      let div = document.getElementById("listaOperacoesSupervisao");
+      let graficoContainer = document.getElementById("graficoContainer");
+      div.innerHTML = "";
+
+      let periodoAtivo = (periodoFiltro.inicio && periodoFiltro.fim)
+        ? periodoFiltro
+        : { tipo: "hoje", ...obterIntervaloData("hoje") };
+
+      let dados = [];
+
+      f.operacoes.forEach((op, opIndex) => {
+        let registrosOp = f.registros.filter(r => {
+          return r.op === opIndex && r.data >= periodoAtivo.inicio && r.data <= periodoAtivo.fim;
+        });
+
+        let totalProduzido = registrosOp.reduce((acc, r) => acc + (Number(r.qtd) || 0), 0);
+        let metaPorHora = op.meta * f.desconto;
+        let metaTotal = calcularMetaPeriodo(metaPorHora, periodoAtivo.inicio, periodoAtivo.fim);
+        let houveRegistroJustificado = registrosOp.some(registroContaComoMetaAtingida);
+        let atingiuMeta = totalProduzido >= metaTotal || houveRegistroJustificado;
+        let percentualAtingido = atingiuMeta ? 100 : (metaTotal > 0 ? Math.round((totalProduzido / metaTotal) * 100) : 0);
+        let status = atingiuMeta ? "✅ META ATINGIDA" : "❌ ABAIXO DA META";
+        let corStatus = atingiuMeta ? "#4CAF50" : "#f44336";
+        let classeCard = atingiuMeta ? "" : "abaixo-meta";
+
+        dados.push({
+          nome: op.nome,
+          produzido: totalProduzido,
+          meta: metaTotal,
+          percentual: percentualAtingido,
+          status: status,
+          cor: corStatus
+        });
+
+        div.innerHTML += `
+          <div class="operacao-card ${classeCard}">
+            <strong>${op.nome}</strong>
+            <small>Produzido: ${totalProduzido} | Meta: ${metaTotal}</small>
+            <small>Percentual: ${percentualAtingido}%</small>
+            <small style="color: ${corStatus}; font-weight: bold;">${status}</small>
+          </div>
+        `;
+      });
+
+      if (dados.length > 0) {
+        graficoContainer.classList.remove("hidden");
+        criarGrafico(dados);
+      } else {
+        graficoContainer.classList.add("hidden");
+        if (graficoAtual) {
+          graficoAtual.destroy();
+          graficoAtual = null;
+        }
+      }
+    }
+
+    function criarGrafico(dados) {
+      let ctx = document.getElementById("graficoProducao");
+      
+      if (graficoAtual) {
+        graficoAtual.destroy();
+      }
+
+      graficoAtual = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dados.map(d => d.nome),
+          datasets: [
+            {
+              label: 'Produzido',
+              data: dados.map(d => d.produzido),
+              backgroundColor: '#4CAF50',
+              borderColor: '#45a049',
+              borderWidth: 1
+            },
+            {
+              label: 'Meta',
+              data: dados.map(d => d.meta),
+              backgroundColor: '#2196F3',
+              borderColor: '#1976D2',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            title: {
+              display: true,
+              text: 'Acompanhamento de Produção'
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // ============================================
+    // FUNÇÕES DE EXPORTAÇÃO
+    // ============================================
+   const HORAS_BASE_EXPORTACAO = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+function escaparCSV(valor) {
+  const texto = valor === undefined || valor === null ? "" : String(valor);
+  return `"${texto.replace(/"/g, '""')}"`;
+}
+
+function montarLinhaCSV(valores) {
+  return valores.map(escaparCSV).join(";") + "\n";
+}
+
+function ordenarHorasTexto(a, b) {
+  const [horaA, minutoA] = String(a || "00:00").split(":").map(Number);
+  const [horaB, minutoB] = String(b || "00:00").split(":").map(Number);
+  return ((horaA || 0) * 60 + (minutoA || 0)) - ((horaB || 0) * 60 + (minutoB || 0));
+}
+
+function obterPeriodoExportacaoSupervisao() {
+  if (periodoFiltro.inicio && periodoFiltro.fim) return { ...periodoFiltro };
+  let intervalo = obterIntervaloData("hoje");
+  return { tipo: "hoje", inicio: intervalo.inicio, fim: intervalo.fim };
+}
+
+// 🔥 NOVA FUNÇÃO DE PERÍODO INTELIGENTE
+function obterNomePeriodo(periodo) {
+  switch (periodo.tipo) {
+    case "hoje":
+      return "Hoje";
+    case "semana":
+      return "Semana";
+    case "mes":
+      return "Mês";
+    case "dataSelecionada":
+      return "Hoje";
+    case "intervalo":
+      return `${periodo.inicio} a ${periodo.fim}`;
+    default:
+      return `${periodo.inicio} a ${periodo.fim}`;
+  }
+}
+
+function obterHorasColunasExportacao(registros) {
+  let horasExtras = [...new Set(
+    registros
+      .map(r => r.hora)
+      .filter(hora => hora && !HORAS_BASE_EXPORTACAO.includes(hora))
+  )].sort(ordenarHorasTexto);
+
+  return [...HORAS_BASE_EXPORTACAO, ...horasExtras];
+}
+
+function agruparQuantidadesPorHora(registros) {
+  let mapa = {};
+  registros.forEach(r => {
+    if (!r || !r.hora) return;
+    mapa[r.hora] = (mapa[r.hora] || 0) + (Number(r.qtd) || 0);
+  });
+  return mapa;
+}
+
+function gerarCSVFuncionarioTabela(funcionario, periodo, titulo) {
+  let registrosPeriodo = funcionario.registros.filter(r => r.data >= periodo.inicio && r.data <= periodo.fim);
+  let horasColunas = obterHorasColunasExportacao(registrosPeriodo);
+  let csv = "";
+
+  let nomesOperacoes = funcionario.operacoes.map(op => op.nome);
+  let metasPorHora = funcionario.operacoes.map(op => Math.round(op.meta * funcionario.desconto));
+
+  const agora = new Date();
+  const dataGeracao = agora.toLocaleDateString('pt-BR') + " " + agora.toLocaleTimeString('pt-BR');
+
+  // 🔥 CABEÇALHO FINAL CORRETO
+  const nomePeriodo = obterNomePeriodo(periodo);
+  const linhaCabecalho = `Nome: ${funcionario.nome}    Período: ${nomePeriodo}    Gerado em: ${dataGeracao}`;
+  csv += montarLinhaCSV([linhaCabecalho]);
+
+  // META/H
+  csv += montarLinhaCSV(["Meta/h:", ...nomesOperacoes]);
+  csv += montarLinhaCSV(["", ...metasPorHora]);
+
+  csv += montarLinhaCSV([]);
+
+  // TABELA
+  csv += montarLinhaCSV(["Operação/h", ...horasColunas, "Total", "Status"]);
+
+  funcionario.operacoes.forEach((op, opIndex) => {
+    let registrosOp = registrosPeriodo.filter(r => r.op === opIndex);
+    let quantidadesPorHora = agruparQuantidadesPorHora(registrosOp);
+    let total = registrosOp.reduce((acc, r) => acc + (Number(r.qtd) || 0), 0);
+    let metaPeriodo = calcularMetaPeriodo(op.meta * funcionario.desconto, periodo.inicio, periodo.fim);
+    
+    // Considera observação, manutenção ou conserto como justificativa de meta no período
+    let houveAlgumRegistroJustificado = registrosOp.some(registroContaComoMetaAtingida);
+    let status = (total >= metaPeriodo || houveAlgumRegistroJustificado) ? "✅ META ATINGIDA" : "❌ ABAIXO DA META";
+
+    csv += montarLinhaCSV([
+      op.nome,
+      ...horasColunas.map(hora => {
+        let reg = registrosOp.find(r => r.hora === hora);
+        if (!reg) return "";
+        let val = reg.qtd;
+        if (reg.obs || reg.conserto || reg.manutencao) {
+          let icons = "";
+          if (reg.manutencao) icons += "🔧";
+          if (reg.conserto) icons += "🛠️";
+          if (reg.obs) icons += "📝";
+          return `${val}/${icons}`;
+        }
+        return val;
+      }),
+      total,
+      status
+    ]);
+  });
+
+  csv += "\n";
+  return csv;
+}
+
+function exportarIndividual() {
+  let f = funcionarios[atual];
+
+  let periodo = {
+    tipo: "dataSelecionada",
+    inicio: dataSelecionada,
+    fim: dataSelecionada
+  };
+
+  let csv = gerarCSVFuncionarioTabela(f, periodo, `RELATÓRIO INDIVIDUAL - ${f.nome}`);
+  downloadCSV(csv, `${f.nome}_${dataSelecionada}.csv`);
+}
+
+function exportarGeral() {
+  let periodo = obterPeriodoExportacaoSupervisao();
+
+  let csv = "";
+  funcionarios.forEach(f => {
+    csv += gerarCSVFuncionarioTabela(f, periodo, `RELATÓRIO GERAL - ${f.nome}`);
+  });
+
+  downloadCSV(csv, `geral_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function downloadCSV(conteudo, nome) {
+  const BOM = "\uFEFF";
+  let blob = new Blob([BOM + conteudo], { type: "text/csv;charset=utf-8" });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  a.click();
+}
+
+function exportarIndividualSupervisao() {
+  let f = funcionarios[atual];
+  let periodo = obterPeriodoExportacaoSupervisao();
+
+  let csv = gerarCSVFuncionarioTabela(f, periodo, `RELATÓRIO DE SUPERVISÃO - ${f.nome}`);
+  downloadCSV(csv, `Supervisao_${f.nome}_${new Date().toISOString().split('T')[0]}.csv`);
+} 
+
+    // ============================================
+    // NOTIFICAÇÕES DE BÔNUS
+    // ============================================
+    function obterPeriodoAtual() {
+      let filtro = configNotificacao.filtro || "hoje";
+      let hoje_obj = new Date();
+      let diaAtual = hoje_obj.getDate();
+      let mesAtual = hoje_obj.getMonth();
+      let anoAtual = hoje_obj.getFullYear();
+
+      if (filtro === "hoje") {
+        let dataStr = hoje();
+        return { inicio: dataStr, fim: dataStr, tipo: "hoje" };
+      } else if (filtro === "dia15") {
+        let inicio = new Date(anoAtual, mesAtual, 1).toISOString().split("T")[0];
+        let fim = new Date(anoAtual, mesAtual, 15).toISOString().split("T")[0];
+        return { inicio, fim, tipo: "dia15" };
+      } else if (filtro === "ultimoDia") {
+        let inicio = new Date(anoAtual, mesAtual, 1).toISOString().split("T")[0];
+        let ultimoDia = new Date(anoAtual, mesAtual + 1, 0).getDate();
+        let fim = new Date(anoAtual, mesAtual, ultimoDia).toISOString().split("T")[0];
+        return { inicio, fim, tipo: "ultimoDia" };
+      }
+    }
+
+    function calcularBonusAcumulado(funcionario, operacao) {
+      let periodo = obterPeriodoAtual();
+      let registrosOp = funcionario.registros.filter(r => {
+        return r.op === funcionario.operacoes.indexOf(operacao) && r.data >= periodo.inicio && r.data <= periodo.fim;
+      });
+
+      let totalAcumulado = registrosOp.reduce((acc, r) => acc + r.qtd, 0);
+      let metaPorHora = operacao.meta * funcionario.desconto;
+      
+      // Meta total considerando dias úteis e jornada reduzida na sexta
+      let metaAcumulada = calcularMetaPeriodo(metaPorHora, periodo.inicio, periodo.fim);
+
+      let houveRegistroJustificado = registrosOp.some(registroContaComoMetaAtingida);
+      let atingiu = totalAcumulado >= metaAcumulada || houveRegistroJustificado;
+
+      return {
+        total: totalAcumulado,
+        meta: metaAcumulada,
+        percentual: atingiu ? Math.max(100, (metaAcumulada > 0 ? Math.round((totalAcumulado / metaAcumulada) * 100) : 100)) : (metaAcumulada > 0 ? Math.round((totalAcumulado / metaAcumulada) * 100) : 0),
+        ultrapassou: totalAcumulado > metaAcumulada || houveRegistroJustificado
+      };
+    }
+
+    function gerarJustificativa(funcionario, operacao, bonus) {
+      let periodo = obterPeriodoAtual();
+      let periodoTexto = "";
+
+      if (periodo.tipo === "hoje") periodoTexto = "hoje";
+      else if (periodo.tipo === "dia15") periodoTexto = "até o dia 15";
+      else if (periodo.tipo === "ultimoDia") periodoTexto = "até o final do mês";
+
+      let diferenca = bonus.total - bonus.meta;
+      let percentualExtra = bonus.percentual - 100;
+
+      return `${funcionario.nome} foi excepcional neste período (${periodoTexto}) na operação "${operacao.nome}"! 
+
+Desempenho:
+• Total produzido: ${bonus.total} unidades
+• Meta estabelecida: ${Math.round(bonus.meta)} unidades
+• Superou em: ${Math.round(diferenca)} unidades (${percentualExtra}% acima da meta)
+
+Por este excelente desempenho, recomenda-se a concessão de bônus de produção.`;
+    }
+
+    function deveDispararNotificacao() {
+      let dataAtual = new Date();
+      let dia = dataAtual.getDate();
+      let hora = dataAtual.getHours();
+      let filtro = configNotificacao.filtro || "hoje";
+
+      // Dispara às 17h (ou qualquer hora após as 17h se ainda não disparou hoje)
+      if (hora < 17) return false;
+
+      let dataHoje = hoje();
+      if (configNotificacao.ultimoDisparo === dataHoje) return false;
+
+      if (filtro === "hoje") return true;
+      else if (filtro === "dia15") return dia >= 15; // Garante disparo no dia 15 ou depois se não abriu no dia exato
+      else if (filtro === "ultimoDia") return isUltimoDiaMes(dataAtual) || dia > 28; // Garante disparo no fim do mês
+
+      return false;
+    }
+
+    function isUltimoDiaMes(d) {
+      return d.getDate() === new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    }
+
+    function gerarNotificacao() {
+      if (!deveDispararNotificacao()) return;
+
+      configNotificacao.ultimoDisparo = hoje();
+      localStorage.setItem("configNotificacao", JSON.stringify(configNotificacao));
+
+      funcionarios.forEach((f, fIdx) => {
+        f.operacoes.forEach((op, opIdx) => {
+          let bonus = calcularBonusAcumulado(f, op);
+          // Verifica se atingiu 100% ou mais (ultrapassou ou igualou)
+          if (bonus.total >= bonus.meta && bonus.meta > 0) {
+            // Evita duplicar notificação para o mesmo funcionário/op no mesmo dia
+            let jaExiste = notificacoes.find(n => n.funcionarioIndex === fIdx && n.operacaoIndex === opIdx && n.timestamp.includes(hoje().split('-').reverse().join('/')));
+            if (!jaExiste) {
+              notificacoes.push({
+                titulo: `✅ ${f.nome} - Sugestão de Bônus`,
+                descricao: `Operação: ${op.nome} | Produção: ${bonus.total} | Meta: ${Math.round(bonus.meta)}`,
+                justificativa: gerarJustificativa(f, op, bonus),
+                timestamp: new Date().toLocaleString("pt-BR"),
+                funcionarioNome: f.nome,
+                operacaoNome: op.nome,
+                bonus: bonus,
+                funcionarioIndex: fIdx,
+                operacaoIndex: opIdx
+              });
+            }
+          }
+        });
+      });
+
+      salvarNotificacoes();
+      atualizarNotificacoes();
+      
+      // Disparar notificação nativa (Push) se houver novas sugestões
+      if (notificacoes.length > 0 && 'Notification' in window && Notification.permission === 'granted') {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification('Controle de Produção', {
+            body: 'Existem novas sugestões de bônus para conferir!',
+            icon: 'icons/icon-192x192.png',
+            vibrate: [200, 100, 200],
+            tag: 'bonus-notificacao',
+            renotify: true,
+            data: { url: window.location.href }
+          });
+        });
+      }
+    }
+
+    // ============================================
+    // INICIALIZAÇÃO
+    // ============================================
+    // Registro do Service Worker para PWA e Permissões de Notificação
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+          console.log('Service Worker registrado com sucesso:', registration);
+          
+          // Solicitar permissão para notificações nativas
+          if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                console.log('Permissão para notificações concedida!');
+              }
+            });
+          }
+        }).catch(error => {
+          console.log('Erro ao registrar Service Worker:', error);
+        });
+      });
+    }
+
+    window.addEventListener('load', () => {
+      usuarioAtual = JSON.parse(localStorage.getItem("usuarioAtual"));
+      let manterConectado = localStorage.getItem("manterConectado") === "true";
+      
+      if (usuarioAtual && manterConectado) {
+        trocarTela("welcome");
+      } else if (usuarioAtual) {
+        trocarTela("welcome");
+      } else {
+        trocarTela("login");
+      }
+      
+      renderFuncionarios();
+      atualizarNotificacoes();
+      carregarConfigNotificacao();
+
+    });
+
+    // ============================================
+    // FUNÇÕES DE DOWNLOAD DE RELATÓRIO DE BÔNUS
+    // ============================================
+    function baixarRelatorioBonusCSV(index) {
+      try {
+        console.log("Iniciando download do relatório para notificação:", index);
+        
+        let notif = notificacoes[index];
+        if (!notif) {
+          console.error("Notificação não encontrada no índice:", index);
+          alert("Notificação não encontrada");
+          return;
+        }
+        
+        console.log("Notificação encontrada:", notif);
+        
+        let f = funcionarios[notif.funcionarioIndex];
+        if (!f) {
+          console.error("Funcionário não encontrado no índice:", notif.funcionarioIndex);
+          alert("Erro: Funcionário não encontrado");
+          return;
+        }
+        
+        let op = f.operacoes[notif.operacaoIndex];
+        if (!op) {
+          console.error("Operação não encontrada no índice:", notif.operacaoIndex);
+          alert("Erro: Operação não encontrada");
+          return;
+        }
+        
+        let bonus = notif.bonus;
+        let periodo = obterPeriodoAtual();
+        
+        let registrosOp = f.registros.filter(r => {
+          return r.op === notif.operacaoIndex && r.data >= periodo.inicio && r.data <= periodo.fim;
+        });
+        
+        let metaAjustada = Math.round(op.meta * f.desconto);
+        let percentualSuperacao = bonus.percentual - 100;
+        let unidadesSuperadas = bonus.total - Math.round(bonus.meta);
+        
+        let html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Bônus - ${notif.funcionarioNome}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; padding: 20px; line-height: 1.6; }
+    .container { max-width: 950px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 4px solid #4CAF50; padding-bottom: 25px; margin-bottom: 35px; }
+    .header h1 { color: #2c3e50; font-size: 32px; margin-bottom: 8px; }
+    .header p { color: #7f8c8d; font-size: 14px; }
+    .info-box { background: #ecf0f1; padding: 18px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid #3498db; }
+    .info-box p { margin: 8px 0; color: #2c3e50; font-size: 15px; }
+    .status-sucesso { background: #d4edda; border: 2px solid #4CAF50; color: #155724; padding: 18px; border-radius: 8px; margin-bottom: 25px; text-align: center; font-weight: bold; font-size: 16px; }
+    .resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+    .card { padding: 22px; border-radius: 10px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-left: 6px solid #4CAF50; }
+    .card.destaque { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border-left-color: #28a745; }
+    .card h3 { color: #2c3e50; font-size: 15px; margin-bottom: 12px; font-weight: 600; }
+    .card .valor { font-size: 28px; font-weight: bold; color: #27ae60; }
+    .card .unidade { font-size: 13px; color: #7f8c8d; margin-top: 8px; }
+    .tabela { width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 14px; }
+    .tabela th { background: #4CAF50; color: white; padding: 14px; text-align: left; font-weight: 600; }
+    .tabela td { padding: 12px 14px; border-bottom: 1px solid #ecf0f1; }
+    .tabela tr:nth-child(even) { background: #f9f9f9; }
+    .tabela tr:hover { background: #f0f7ff; }
+    .meta-ok { color: #27ae60; font-weight: bold; }
+    .meta-nao { color: #e74c3c; font-weight: bold; }
+    .manutencao { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .secao-titulo { color: #2c3e50; font-size: 20px; margin-top: 30px; margin-bottom: 18px; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; font-weight: 600; }
+    .justificativa { background: #e3f2fd; border-left: 5px solid #2196F3; padding: 18px; border-radius: 8px; margin: 20px 0; line-height: 1.7; color: #1565c0; white-space: pre-wrap; font-size: 14px; }
+    .rodape { text-align: center; color: #95a5a6; font-size: 12px; margin-top: 35px; padding-top: 20px; border-top: 2px solid #ecf0f1; }
+    .sem-info { color: #95a5a6; font-style: italic; }
+    .grafico-container { margin: 30px 0; text-align: center; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+    .grafico-barra { display: flex; align-items: flex-end; justify-content: center; gap: 40px; height: 250px; margin: 20px 0; }
+    .barra { display: flex; flex-direction: column; align-items: center; }
+    .barra-valor { width: 60px; background: linear-gradient(to top, #4CAF50, #81c784); border-radius: 8px 8px 0 0; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: bold; font-size: 14px; padding: 10px; }
+    .barra-label { margin-top: 10px; font-weight: 600; color: #2c3e50; }
+    @media print { body { background: white; } .container { box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏆 Relatório Detalhado de Bônus</h1>
+      <p>Gerado em ${new Date().toLocaleString("pt-BR")}</p>
+    </div>
+    
+    <div class="info-box">
+      <p><strong>Funcionário:</strong> ${notif.funcionarioNome || "<span class='sem-info'>(sem informações)</span>"}</p>
+      <p><strong>Operação:</strong> ${notif.operacaoNome || "<span class='sem-info'>(sem informações)</span>"}</p>
+      <p><strong>Período:</strong> ${periodo.inicio} a ${periodo.fim}</p>
+    </div>
+    
+    <div class="status-sucesso">
+      ✅ META ULTRAPASSADA - SUGESTÃO DE BÔNUS APROVADA
+    </div>
+    
+    <div class="resumo">
+      <div class="card destaque">
+        <h3>🏁 Meta Estabelecida</h3>
+        <div class="valor">${Math.round(bonus.meta) || "N/A"}</div>
+        <div class="unidade">unidades</div>
+      </div>
+      
+      <div class="card destaque">
+        <h3>📊 Total Produzido</h3>
+        <div class="valor">${bonus.total || "N/A"}</div>
+        <div class="unidade">unidades</div>
+      </div>
+      
+      <div class="card">
+        <h3>🔼 Unidades Superadas</h3>
+        <div class="valor">${unidadesSuperadas || "N/A"}</div>
+        <div class="unidade">unidades acima da meta</div>
+      </div>
+      
+      <div class="card">
+        <h3>📊 Percentual de Superação</h3>
+        <div class="valor">${percentualSuperacao}%</div>
+        <div class="unidade">acima da meta</div>
+      </div>
+    </div>
+    
+    <div class="grafico-container">
+      <h3 style="color: #2c3e50; margin-bottom: 20px;">Comparativo: Produção vs Meta</h3>
+      <div class="grafico-barra">
+        <div class="barra">
+          <div class="barra-valor" style="height: ${(Math.round(bonus.meta) / Math.max(bonus.total, Math.round(bonus.meta)) * 200)}px;">${Math.round(bonus.meta)}</div>
+          <div class="barra-label">Meta</div>
+        </div>
+        <div class="barra">
+          <div class="barra-valor" style="height: ${(bonus.total / Math.max(bonus.total, Math.round(bonus.meta)) * 200)}px;">${bonus.total}</div>
+          <div class="barra-label">Produzido</div>
+        </div>
+      </div>
+    </div>
+    
+    <h2 class="secao-titulo">📄 Detalhamento da Produção</h2>
+    
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Hora</th>
+          <th>Quantidade</th>
+          <th>Meta Diária</th>
+          <th>Status</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${registrosOp.length > 0 ? registrosOp.map(r => `
+          <tr>
+            <td>${r.data || "<span class='sem-info'>N/A</span>"}</td>
+            <td>${r.hora || "<span class='sem-info'>N/A</span>"}</td>
+            <td><strong>${r.qtd || "<span class='sem-info'>N/A</span>"}</strong></td>
+            <td>${metaAjustada}</td>
+            <td>${(registroContaComoMetaAtingida(r) || r.qtd >= metaAjustada) ? '<span class="meta-ok">✅ Acima</span>' : '<span class="meta-nao">❌ Abaixo</span>'}</td>
+            <td>${[
+              r.manutencao ? '<span class="manutencao">🔧 Manutenção</span>' : '',
+              r.conserto ? '<span class="manutencao">🛠️ Conserto</span>' : '',
+              temObservacaoPreenchida(r.obs) ? `<span class="manutencao">📝 ${r.obs}</span>` : ''
+            ].filter(Boolean).join(' ') || '-'}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="6" style="text-align: center; color: #95a5a6;">Sem registros de produção</td></tr>'}
+      </tbody>
+    </table>
+    
+    <h2 class="secao-titulo">📝 Justificativa da Sugestão</h2>
+    
+    <div class="justificativa">
+      ${notif.justificativa || "<span class='sem-info'>(sem informações suficientes)</span>"}
+    </div>
+    
+    <div class="rodape">
+      <p>📊 Relatório gerado automaticamente pelo Sistema de Controle de Produção</p>
+      <p>Este documento pode ser impresso ou salvo como PDF para fins de documentação</p>
+    </div>
+  </div>
+</body>
+</html>`;
+        
+        let blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        let url = URL.createObjectURL(blob);
+        let nomeArquivo = `Relatorio_Bonus_${notif.funcionarioNome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
+        
+        console.log("Criando link de download com nome:", nomeArquivo);
+        
+        let link = document.createElement('a');
+        link.href = url;
+        link.download = nomeArquivo;
+        link.style.display = 'none';
+        
+        // Adicionar ao DOM
+        document.body.appendChild(link);
+        
+        // Disparar o download com delay para garantir compatibilidade
+        setTimeout(() => {
+          link.click();
+          console.log("Download disparado");
+          
+          // Remover após um tempo
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            console.log("Limpeza realizada");
+          }, 100);
+        }, 100);
+      } catch (e) {
+        console.error("Erro ao gerar relatório:", e);
+        alert("Erro ao gerar relatório. Verifique o console para mais detalhes.");
+      }
+    }
+
+    function baixarRelatorioBonusExcel(index) {
+      // Gera o mesmo relatório HTML (pode ser aberto e salvo como PDF no navegador)
+      baixarRelatorioBonusCSV(index);
+    }
+
+    // ============================================
+    // FUNÇÕES DE NAVEGAÇÃO DE DATA
+    // ============================================
+    function voltarData() {
+      let data = new Date(dataSelecionada);
+      data.setDate(data.getDate() - 1);
+      dataSelecionada = data.toISOString().split('T')[0];
+      renderProducao();
+    }
+
+    function avancarData() {
+      let data = new Date(dataSelecionada);
+      data.setDate(data.getDate() + 1);
+      dataSelecionada = data.toISOString().split('T')[0];
+      renderProducao();
+    }
+
+    function mudarData() {
+      let novaData = document.getElementById("dataSelecionada").value;
+      if (novaData) {
+        dataSelecionada = novaData;
+        renderProducao();
+      }
+    }
+
+    function voltarDataHome() {
+      let data = new Date(dataSelecionada);
+      data.setDate(data.getDate() - 1);
+      dataSelecionada = data.toISOString().split('T')[0];
+      renderFuncionarios();
+    }
+
+    function avancarDataHome() {
+      let data = new Date(dataSelecionada);
+      data.setDate(data.getDate() + 1);
+      dataSelecionada = data.toISOString().split('T')[0];
+      renderFuncionarios();
+    }
+
+    function mudarDataHome() {
+      let novaData = document.getElementById("dataSelecionadaHome").value;
+      if (novaData) {
+        dataSelecionada = novaData;
+        renderFuncionarios();
+      }
+    }
+
+    // ============================================
+    // VERIFICAÇÃO DE RESET À MEIA-NOITE
+    // ============================================
+    function verificarResetDiario() {
+      let dataAtual = new Date().toISOString().split('T')[0];
+      
+      // Se a data mudou desde a última abertura, resetar para hoje
+      if (ultimaDataAberta !== null && ultimaDataAberta !== dataAtual) {
+        dataSelecionada = dataAtual;
+        console.log('Novo dia detectado. Resetando para hoje.');
+      }
+      
+      ultimaDataAberta = dataAtual;
+      
+      // Salvar no localStorage para persistência
+      localStorage.setItem('ultimaDataAberta', dataAtual);
+    }
+
+    // Chamar verificação ao carregar a página
+    window.addEventListener('load', async () => {
+      ultimaDataAberta = localStorage.getItem('ultimaDataAberta') || new Date().toISOString().split('T')[0];
+      verificarResetDiario();
+
+      // Verificar se há usuário logado no Firebase
+      window.fbAuth.onAuthStateChanged(window.auth, async (user) => {
+        if (user) {
+          usuarioAtual = { uid: user.uid, email: user.email, nome: user.displayName || user.email.split('@')[0] };
+          localStorage.setItem("usuarioAtual", JSON.stringify(usuarioAtual));
+          await carregarDadosNuvem();
+          if (document.getElementById("login").classList.contains("hidden") === false) {
+            trocarTela("welcome");
+          }
+        } else {
+          usuarioAtual = null;
+          localStorage.removeItem("usuarioAtual");
+          trocarTela("login");
+        }
+      });
+    });
+
+    // Verificar a cada minuto se mudou o dia e se há notificações de bônus
+    setInterval(() => {
+      verificarResetDiario();
+      gerarNotificacao();
+    }, 60000);
+
+    // FUNÇÕES ADMIN
+    async function zerarSistema() {
+      if (confirm("⚠️ ATENÇÃO: Isso apagará TODOS os seus dados na nuvem (funcionários, registros, configurações). Deseja continuar?")) {
+        if (confirm("Tem certeza absoluta? Esta ação não pode ser desfeita.")) {
+          try {
+            if (usuarioAtual) {
+              await window.fbDb.deleteDoc(window.fbDb.doc(window.db, "dados", usuarioAtual.uid));
+            }
+            localStorage.clear();
+            alert("Seus dados foram zerados com sucesso! A página será recarregada.");
+            location.reload();
+          } catch (error) {
+            console.error("Erro ao zerar sistema:", error);
+            alert("Erro ao apagar dados da nuvem.");
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- TELA PAINEL ADMIN -->
+  <div class="box hidden" id="painelAdmin">
+    <h2 style="text-align: center; margin-bottom: 20px;">🛠 Painel do Desenvolvedor</h2>
+    <div class="info-box" style="background: #fff3e0; border-color: #ff9800; color: #e65100;">
+      <strong>Modo de Manutenção</strong><br>
+      Aqui você pode gerenciar dados sensíveis e resetar o sistema.
+    </div>
+    
+    <div class="config-section">
+      <h4>Ações Críticas</h4>
+      <button class="btn-limpar" onclick="zerarSistema()" style="background: #d32f2f;">🔥 ZERAR TODO O SISTEMA</button>
+      <p style="font-size: 12px; color: #666; margin-top: 5px;">* Apaga localStorage, registros e usuários.</p>
+    </div>
+
+    <div class="config-section">
+      <h4>Informações do Sistema</h4>
+      <p>Versão: 2.0.0</p>
+      <p>Horas/Dia: 9h</p>
+    </div>
+
+    <button class="btn-menu" onclick="trocarTela('login')">Sair do Painel</button>
+  </div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
